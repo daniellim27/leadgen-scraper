@@ -1,0 +1,803 @@
+{% extends "base.html" %}
+
+{% block title %}Private Equity Lead Generator | Search{% endblock %}
+
+{% block content %}
+<div class="py-4">
+    <h1 class="mb-4">Business Search</h1>
+    <div class="row">
+        <!-- Search Form -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-search me-2"></i>Search Parameters</h5>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm">
+                        <div class="mb-3">
+                            <label for="businessType" class="form-label">Business URL</label>
+                            <input type="text" class="form-control" id="businessType" name="query" placeholder="e.g. https://www.example.com" required>
+                            <div class="form-text">Enter the website URL of the business you're interested in. The system will automatically determine the location.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100" id="searchButton">
+                            <i class="fas fa-search me-1"></i> Search
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-file-export me-2"></i>Export Options</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Export selected businesses to CSV or Excel format.</p>
+                    <form id="exportForm">
+                        <div class="mb-3">
+                            <select class="form-select" id="exportFormat" name="format">
+                                <option value="csv">CSV Format</option>
+                                <option value="excel">Excel Format</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-secondary w-100" id="exportButton" disabled>
+                            <i class="fas fa-download me-1"></i> Export Data
+                        </button>
+                        <input type="hidden" id="exportBusinesses" name="businesses" value="">
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>Search Results</h5>
+                        <span class="badge bg-primary" id="resultCount">0 results</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Loading Indicator -->
+                    <div id="loadingIndicator" class="text-center py-5" style="display: none;">
+                        <div class="loader"></div>
+                        <p class="mt-3">Searching for businesses...</p>
+                    </div>
+                    
+                    <!-- Results List -->
+                    <div id="resultsContainer">
+                        <div class="alert alert-info" id="initialMessage">
+                            <i class="fas fa-info-circle me-2"></i> Use the search form to find businesses
+                        </div>
+                        <div id="businessList"></div>
+                    </div>
+                    
+                    <!-- No Results Message -->
+                    <div id="noResultsMessage" class="alert alert-warning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i> No businesses found matching your criteria. Try adjusting your search parameters.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Business Details Card (initially hidden) -->
+            <div class="card mt-4" id="businessDetailsCard" style="display: none;">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0"><i class="fas fa-building me-2"></i><span id="detailsBusinessName"></span></h5>
+                </div>
+                <div class="card-body">
+                    <div id="detailsLoadingIndicator" class="text-center py-3" style="display: none;">
+                        <div class="loader"></div>
+                        <p class="mt-3">Loading business details...</p>
+                    </div>
+                    
+                    <div id="businessDetails">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-map-marker-alt me-2"></i>Address:</strong> <span class="badge bg-info text-white">Auto-detected</span></p>
+                                <p id="detailsAddress"></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-phone me-2"></i>Phone:</strong></p>
+                                <p id="detailsPhone"></p>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-envelope me-2"></i>Email:</strong></p>
+                                <p id="detailsEmail"></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-user-tie me-2"></i>CEO/Owner:</strong></p>
+                                <p id="detailsCEO"></p>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-globe me-2"></i>Website:</strong></p>
+                                <p id="detailsWebsite"></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong><i class="fas fa-star me-2"></i>Rating:</strong></p>
+                                <p id="detailsRating"></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Financial Data Section (initially hidden) -->
+                        <div id="financialDataSection" style="display: none;">
+                            <hr>
+                            <h5 class="mb-3"><i class="fas fa-chart-pie me-2"></i>Financial Data</h5>
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle me-2"></i> Financial data provided by <strong>Financial Modeling Prep API</strong> for <span id="financialCompanyName"></span> (<span id="financialTicker"></span>)
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="card-title mb-0">Company Overview</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p><strong>Industry:</strong> <span id="financialIndustry"></span></p>
+                                            <p><strong>Sector:</strong> <span id="financialSector"></span></p>
+                                            <p><strong>Market Cap:</strong> <span id="financialMarketCap"></span></p>
+                                            <p><strong>Exchange:</strong> <span id="financialExchange"></span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="card-title mb-0">Key Financial Ratios</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p><strong>P/E Ratio:</strong> <span id="financialPERatio"></span></p>
+                                            <p><strong>Return on Equity:</strong> <span id="financialROE"></span></p>
+                                            <p><strong>Profit Margin:</strong> <span id="financialProfitMargin"></span></p>
+                                            <p><strong>Debt to Equity:</strong> <span id="financialDebtToEquity"></span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="card-title mb-0">Income Statement Highlights</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p><strong>Revenue:</strong> <span id="financialRevenue"></span></p>
+                                            <p><strong>Gross Profit:</strong> <span id="financialGrossProfit"></span></p>
+                                            <p><strong>Net Income:</strong> <span id="financialNetIncome"></span></p>
+                                            <p><strong>EPS:</strong> <span id="financialEPS"></span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="card-title mb-0">Balance Sheet Highlights</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p><strong>Total Assets:</strong> <span id="financialTotalAssets"></span></p>
+                                            <p><strong>Total Liabilities:</strong> <span id="financialTotalLiabilities"></span></p>
+                                            <p><strong>Cash & Equivalents:</strong> <span id="financialCash"></span></p>
+                                            <p><strong>Total Debt:</strong> <span id="financialTotalDebt"></span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button class="btn btn-success me-md-2" id="analyzeButton" type="button">
+                                <i class="fas fa-brain me-1"></i> Generate Insights
+                            </button>
+                            <button class="btn btn-outline-primary" id="selectBusinessButton" type="button">
+                                <i class="fas fa-check me-1"></i> <span id="selectButtonText">Select</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI Insights Panel (initially hidden) -->
+            <div class="card mt-4" id="insightsCard" style="display: none;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-brain me-2"></i>Private Equity Insights</h5>
+                </div>
+                <div class="card-body">
+                    <div id="insightsLoadingIndicator" class="text-center py-3" style="display: none;">
+                        <div class="loader"></div>
+                        <p class="mt-3">Generating insights with AI...</p>
+                    </div>
+                    
+                    <div id="insightsContent">
+                        <div class="alert alert-success mb-4">
+                            <strong>Investment Summary:</strong>
+                            <p id="insightsSummary" class="mb-0"></p>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="insights-panel">
+                                    <h6 class="insights-header"><i class="fas fa-chart-line me-2"></i>Growth Potential</h6>
+                                    <p id="insightsGrowth"></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="insights-panel">
+                                    <h6 class="insights-header"><i class="fas fa-balance-scale me-2"></i>Market Position</h6>
+                                    <p id="insightsMarket"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="insights-panel">
+                                    <h6 class="insights-header"><i class="fas fa-plus-circle me-2"></i>Value Creation</h6>
+                                    <p id="insightsValue"></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="insights-panel">
+                                    <h6 class="insights-header"><i class="fas fa-exclamation-triangle me-2"></i>Risk Factors</h6>
+                                    <p id="insightsRisks"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="insights-panel">
+                            <h6 class="insights-header"><i class="fas fa-tasks me-2"></i>Recommended Next Steps</h6>
+                            <p id="insightsNextSteps"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Utility functions for formatting financial data
+        function formatCurrency(value) {
+            if (value === undefined || value === null) return null;
+            const num = parseFloat(value);
+            if (isNaN(num)) return null;
+            
+            // Format large numbers in millions/billions
+            if (Math.abs(num) >= 1e9) {
+                return '$' + (num / 1e9).toFixed(2) + 'B';
+            } else if (Math.abs(num) >= 1e6) {
+                return '$' + (num / 1e6).toFixed(2) + 'M';
+            } else {
+                return '$' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
+        
+        function formatNumber(value) {
+            if (value === undefined || value === null) return null;
+            const num = parseFloat(value);
+            if (isNaN(num)) return null;
+            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        
+        function formatPercent(value) {
+            if (value === undefined || value === null) return null;
+            const num = parseFloat(value);
+            if (isNaN(num)) return null;
+            return (num * 100).toFixed(2) + '%';
+        }
+        
+        // Element references
+        const searchForm = document.getElementById('searchForm');
+        const exportForm = document.getElementById('exportForm');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const initialMessage = document.getElementById('initialMessage');
+        const businessList = document.getElementById('businessList');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const resultCount = document.getElementById('resultCount');
+        const businessDetailsCard = document.getElementById('businessDetailsCard');
+        const insightsCard = document.getElementById('insightsCard');
+        const exportButton = document.getElementById('exportButton');
+        
+        // Selected businesses for export
+        let selectedBusinesses = [];
+        let currentBusiness = null;
+        
+        // Search form submission
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(searchForm);
+            const query = formData.get('query');
+            
+            // Hide previous results and show loading
+            initialMessage.style.display = 'none';
+            noResultsMessage.style.display = 'none';
+            businessList.innerHTML = '';
+            loadingIndicator.style.display = 'block';
+            businessDetailsCard.style.display = 'none';
+            insightsCard.style.display = 'none';
+            
+            // Get CSRF token from meta tag
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Make the search request
+            fetch('/search/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadingIndicator.style.display = 'none';
+                
+                if (data.success && data.businesses && data.businesses.length > 0) {
+                    displaySearchResults(data.businesses);
+                    resultCount.textContent = `${data.businesses.length} results`;
+                    
+                    // Enable export if we have businesses and at least one is selected
+                    if (selectedBusinesses.length > 0) {
+                        exportButton.disabled = false;
+                    }
+                } else {
+                    noResultsMessage.style.display = 'block';
+                    resultCount.textContent = '0 results';
+                    exportButton.disabled = true;
+                }
+            })
+            .catch(error => {
+                loadingIndicator.style.display = 'none';
+                alert('Error: ' + error.message);
+                console.error('Error:', error);
+            });
+        });
+        
+        // Display search results
+        function displaySearchResults(businesses) {
+            businessList.innerHTML = '';
+            
+            businesses.forEach(business => {
+                const isSelected = selectedBusinesses.some(b => b.place_id === business.place_id);
+                
+                const businessCard = document.createElement('div');
+                businessCard.className = 'business-item p-3 mb-3 border rounded';
+                businessCard.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5>${business.name}</h5>
+                            <p class="text-muted mb-2">
+                                <span class="badge bg-info text-white me-2"><i class="fas fa-map-marker-alt"></i> Auto-detected Location</span>
+                                ${business.address}
+                            </p>
+                            <div class="mb-2">
+                                ${business.rating ? `<span class="badge bg-warning text-dark me-2">${business.rating} ★</span>` : ''}
+                                ${business.total_ratings ? `<small class="text-muted">(${business.total_ratings} reviews)</small>` : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm ${isSelected ? 'btn-success' : 'btn-outline-primary'} select-business" 
+                                    data-place-id="${business.place_id}">
+                                <i class="fas ${isSelected ? 'fa-check-circle' : 'fa-plus-circle'}"></i>
+                                ${isSelected ? 'Selected' : 'Select'}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-secondary view-details" data-place-id="${business.place_id}">
+                            <i class="fas fa-info-circle me-1"></i> View Details
+                        </button>
+                    </div>
+                `;
+                
+                businessList.appendChild(businessCard);
+            });
+            
+            // Add event listeners to the view details buttons
+            document.querySelectorAll('.view-details').forEach(button => {
+                button.addEventListener('click', function() {
+                    const placeId = this.getAttribute('data-place-id');
+                    loadBusinessDetails(placeId);
+                });
+            });
+            
+            // Add event listeners to the select business buttons
+            document.querySelectorAll('.select-business').forEach(button => {
+                button.addEventListener('click', function() {
+                    const placeId = this.getAttribute('data-place-id');
+                    toggleBusinessSelection(placeId, this);
+                });
+            });
+        }
+        
+        // Load business details
+        function loadBusinessDetails(placeId) {
+            // Show the details card and loading indicator
+            businessDetailsCard.style.display = 'block';
+            document.getElementById('detailsLoadingIndicator').style.display = 'block';
+            document.getElementById('businessDetails').style.display = 'none';
+            
+            // Hide insights card
+            insightsCard.style.display = 'none';
+            
+            // Scroll to the details card
+            businessDetailsCard.scrollIntoView({ behavior: 'smooth' });
+            
+            // Fetch the business details
+            fetch(`/search/business/${placeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('detailsLoadingIndicator').style.display = 'none';
+                    
+                    if (data.success && data.details) {
+                        const details = data.details;
+                        currentBusiness = details;
+                        
+                        // Update the details in the UI
+                        document.getElementById('detailsBusinessName').textContent = details.name || 'N/A';
+                        document.getElementById('detailsAddress').textContent = details.address || 'Not available';
+                        document.getElementById('detailsPhone').textContent = details.phone || 'Not available';
+                        document.getElementById('detailsEmail').textContent = details.email || 'Not available';
+                        document.getElementById('detailsCEO').textContent = details.ceo_name || 'Not available';
+                        
+                        // Website with link if available
+                        if (details.website) {
+                            document.getElementById('detailsWebsite').innerHTML = `<a href="${details.website}" target="_blank">${details.website}</a>`;
+                        } else {
+                            document.getElementById('detailsWebsite').textContent = 'Not available';
+                        }
+                        
+                        // Rating with stars
+                        if (details.rating) {
+                            document.getElementById('detailsRating').innerHTML = `
+                                <span class="badge bg-warning text-dark">${details.rating} ★</span>
+                                ${details.total_ratings ? `<span class="ms-2">(${details.total_ratings} reviews)</span>` : ''}
+                            `;
+                        } else {
+                            document.getElementById('detailsRating').textContent = 'Not rated';
+                        }
+                        
+                        // Handle financial data if available
+                        const financialDataSection = document.getElementById('financialDataSection');
+                        if (data.financial_data && !data.financial_data.error) {
+                            const financial = data.financial_data;
+                            
+                            // Display company info
+                            document.getElementById('financialCompanyName').textContent = financial.company_name || details.name;
+                            document.getElementById('financialTicker').textContent = financial.ticker || 'N/A';
+                            
+                            // Company Overview
+                            const profile = financial.profile || {};
+                            document.getElementById('financialIndustry').textContent = profile.industry || 'N/A';
+                            document.getElementById('financialSector').textContent = profile.sector || 'N/A';
+                            document.getElementById('financialMarketCap').textContent = formatCurrency(profile.mktCap) || 'N/A';
+                            document.getElementById('financialExchange').textContent = profile.exchange || 'N/A';
+                            
+                            // Financial Ratios
+                            const ratios = financial.financial_ratios || {};
+                            document.getElementById('financialPERatio').textContent = formatNumber(ratios.peRatioTTM) || 'N/A';
+                            document.getElementById('financialROE').textContent = formatPercent(ratios.returnOnEquityTTM) || 'N/A';
+                            document.getElementById('financialProfitMargin').textContent = formatPercent(ratios.netProfitMarginTTM) || 'N/A';
+                            document.getElementById('financialDebtToEquity').textContent = formatNumber(ratios.debtEquityRatioTTM) || 'N/A';
+                            
+                            // Income Statement
+                            const income = financial.income_statement || {};
+                            document.getElementById('financialRevenue').textContent = formatCurrency(income.revenue) || 'N/A';
+                            document.getElementById('financialGrossProfit').textContent = formatCurrency(income.grossProfit) || 'N/A';
+                            document.getElementById('financialNetIncome').textContent = formatCurrency(income.netIncome) || 'N/A';
+                            document.getElementById('financialEPS').textContent = formatNumber(income.eps) || 'N/A';
+                            
+                            // Balance Sheet
+                            const balance = financial.balance_sheet || {};
+                            document.getElementById('financialTotalAssets').textContent = formatCurrency(balance.totalAssets) || 'N/A';
+                            document.getElementById('financialTotalLiabilities').textContent = formatCurrency(balance.totalLiabilities) || 'N/A';
+                            document.getElementById('financialCash').textContent = formatCurrency(balance.cashAndCashEquivalents) || 'N/A';
+                            document.getElementById('financialTotalDebt').textContent = formatCurrency(balance.totalDebt) || 'N/A';
+                            
+                            // Show the financial data section
+                            financialDataSection.style.display = 'block';
+                        } else {
+                            // Hide the financial data section if no data available
+                            financialDataSection.style.display = 'none';
+                        }
+                        
+                        // Update select button state
+                        const isSelected = selectedBusinesses.some(b => b.place_id === details.place_id);
+                        const selectButton = document.getElementById('selectBusinessButton');
+                        const selectButtonText = document.getElementById('selectButtonText');
+                        
+                        if (isSelected) {
+                            selectButton.classList.remove('btn-outline-primary');
+                            selectButton.classList.add('btn-success');
+                            selectButtonText.textContent = 'Selected';
+                        } else {
+                            selectButton.classList.remove('btn-success');
+                            selectButton.classList.add('btn-outline-primary');
+                            selectButtonText.textContent = 'Select';
+                        }
+                        
+                        // Show the details
+                        document.getElementById('businessDetails').style.display = 'block';
+                    } else {
+                        alert('Error loading business details');
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('detailsLoadingIndicator').style.display = 'none';
+                    alert('Error: ' + error.message);
+                    console.error('Error:', error);
+                });
+        }
+        
+        // Toggle business selection for export
+        function toggleBusinessSelection(placeId, buttonElement) {
+            const isSelected = selectedBusinesses.some(b => b.place_id === placeId);
+            
+            if (isSelected) {
+                // Remove from selected businesses
+                selectedBusinesses = selectedBusinesses.filter(b => b.place_id !== placeId);
+                
+                // Update button appearance
+                if (buttonElement) {
+                    buttonElement.classList.remove('btn-success');
+                    buttonElement.classList.add('btn-outline-primary');
+                    buttonElement.innerHTML = '<i class="fas fa-plus-circle"></i> Select';
+                }
+                
+                // Update select button in details view if this is the current business
+                if (currentBusiness && currentBusiness.place_id === placeId) {
+                    const selectButton = document.getElementById('selectBusinessButton');
+                    selectButton.classList.remove('btn-success');
+                    selectButton.classList.add('btn-outline-primary');
+                    document.getElementById('selectButtonText').textContent = 'Select';
+                }
+            } else {
+                // Find the business in the search results
+                fetch(`/search/business/${placeId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.details) {
+                            // Add to selected businesses
+                            selectedBusinesses.push(data.details);
+                            
+                            // Update button appearance
+                            if (buttonElement) {
+                                buttonElement.classList.remove('btn-outline-primary');
+                                buttonElement.classList.add('btn-success');
+                                buttonElement.innerHTML = '<i class="fas fa-check-circle"></i> Selected';
+                            }
+                            
+                            // Update select button in details view if this is the current business
+                            if (currentBusiness && currentBusiness.place_id === placeId) {
+                                const selectButton = document.getElementById('selectBusinessButton');
+                                selectButton.classList.remove('btn-outline-primary');
+                                selectButton.classList.add('btn-success');
+                                document.getElementById('selectButtonText').textContent = 'Selected';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }
+            
+            // Enable/disable export button based on selections
+            exportButton.disabled = selectedBusinesses.length === 0;
+            
+            // Update the hidden input for export
+            document.getElementById('exportBusinesses').value = JSON.stringify(selectedBusinesses);
+        }
+        
+        // Handle selection from details view
+        document.getElementById('selectBusinessButton').addEventListener('click', function() {
+            if (currentBusiness) {
+                const placeId = currentBusiness.place_id;
+                toggleBusinessSelection(placeId, null);
+                
+                // Also update any matching buttons in the results list
+                document.querySelectorAll(`.select-business[data-place-id="${placeId}"]`).forEach(button => {
+                    const isSelected = selectedBusinesses.some(b => b.place_id === placeId);
+                    if (isSelected) {
+                        button.classList.remove('btn-outline-primary');
+                        button.classList.add('btn-success');
+                        button.innerHTML = '<i class="fas fa-check-circle"></i> Selected';
+                    } else {
+                        button.classList.remove('btn-success');
+                        button.classList.add('btn-outline-primary');
+                        button.innerHTML = '<i class="fas fa-plus-circle"></i> Select';
+                    }
+                });
+            }
+        });
+        
+        // Handle the analyze button click
+        document.getElementById('analyzeButton').addEventListener('click', function() {
+            if (!currentBusiness) return;
+            
+            // Show the insights card and loading indicator
+            insightsCard.style.display = 'block';
+            document.getElementById('insightsLoadingIndicator').style.display = 'block';
+            document.getElementById('insightsContent').style.display = 'none';
+            
+            // Scroll to the insights card
+            insightsCard.scrollIntoView({ behavior: 'smooth' });
+            
+            // Make the API call to analyze the business
+            fetch('/search/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    business_data: currentBusiness
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('insightsLoadingIndicator').style.display = 'none';
+                
+                if (data.success && data.insights) {
+                    const insights = data.insights;
+                    
+                    // Update the insights in the UI
+                    document.getElementById('insightsSummary').textContent = insights.summary || 'No summary available';
+                    document.getElementById('insightsGrowth').textContent = insights.growth_potential || 'No assessment available';
+                    document.getElementById('insightsMarket').textContent = insights.market_position || 'No assessment available';
+                    document.getElementById('insightsValue').textContent = insights.value_creation || 'No strategies available';
+                    document.getElementById('insightsRisks').textContent = insights.risk_factors || 'No risk factors identified';
+                    document.getElementById('insightsNextSteps').textContent = insights.next_steps || 'No recommendations available';
+                    
+                    // Show the insights content
+                    document.getElementById('insightsContent').style.display = 'block';
+                } else {
+                    alert('Error generating insights');
+                }
+            })
+            .catch(error => {
+                document.getElementById('insightsLoadingIndicator').style.display = 'none';
+                alert('Error: ' + error.message);
+                console.error('Error:', error);
+            });
+        });
+        
+        // Handle export form submission
+        exportForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Export form submitted');
+            
+            if (selectedBusinesses.length === 0) {
+                alert('Please select at least one business to export');
+                return;
+            }
+            
+            try {
+                console.log(`Exporting ${selectedBusinesses.length} businesses`);
+                
+                // Get the export format
+                const exportFormat = document.getElementById('exportFormat').value;
+                console.log('Export format:', exportFormat);
+                
+                // Get CSRF token
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                if (!csrfMeta) {
+                    console.error('CSRF token meta tag not found');
+                    alert('CSRF token not found. Please refresh the page and try again.');
+                    return;
+                }
+                const csrfToken = csrfMeta.getAttribute('content');
+                if (!csrfToken) {
+                    console.error('CSRF token is empty');
+                    alert('CSRF token is missing. Please refresh the page and try again.');
+                    return;
+                }
+                
+                // Create a direct download link in the page
+                const downloadLink = document.createElement('a');
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
+                
+                // Show loading indicator or message
+                const exportButton = document.getElementById('exportButton');
+                const originalButtonText = exportButton.innerHTML;
+                exportButton.disabled = true;
+                exportButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Exporting...';
+                
+                // Use fetch to directly download the file
+                fetch('/search/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        format: exportFormat,
+                        businesses: selectedBusinesses
+                    })
+                })
+                .then(response => {
+                    // Reset button
+                    exportButton.disabled = false;
+                    exportButton.innerHTML = originalButtonText;
+                    
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Export failed');
+                        });
+                    }
+                    
+                    // Check if we got JSON (error) or blob (file)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json().then(data => {
+                            if (!data.success) {
+                                throw new Error(data.error || 'Export failed');
+                            }
+                            return null; // No file download
+                        });
+                    }
+                    
+                    // It's a file download
+                    return response.blob();
+                })
+                .then(blob => {
+                    if (!blob) return; // No file download (handled error)
+                    
+                    // Create object URL and trigger download
+                    const url = window.URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    
+                    // Set filename based on format
+                    if (exportFormat === 'excel') {
+                        downloadLink.download = 'business_leads.xlsx';
+                    } else {
+                        downloadLink.download = 'business_leads.csv';
+                    }
+                    
+                    // Trigger the download
+                    downloadLink.click();
+                    
+                    // Clean up
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(downloadLink);
+                    
+                    console.log('Export completed successfully');
+                })
+                .catch(error => {
+                    // Reset button
+                    exportButton.disabled = false;
+                    exportButton.innerHTML = originalButtonText;
+                    
+                    console.error('Error during export:', error);
+                    alert('Error during export: ' + error.message);
+                });
+            } catch (error) {
+                console.error('Error during export setup:', error);
+                alert('Error during export setup: ' + error.message);
+            }
+        });
+    });
+</script>
+{% endblock %}
+
